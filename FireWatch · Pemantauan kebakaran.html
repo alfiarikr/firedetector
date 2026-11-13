@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<!-- saved from url=(0036)https://firedetector-rho.vercel.app/ -->
+<html lang="id" data-theme="dark"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171719">
+  <title>FireWatch · Pemantauan kebakaran</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com/"><link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+  <link href="./FireWatch · Pemantauan kebakaran_files/css2" rel="stylesheet">
+  <style>
+    /* === TOKENS – data-terminal style, seed 1086601590 === */
+    :root {
+      color-scheme: dark;
+      --ground: #131215;
+      --surface: #1a191e;
+      --raised: #212023;
+      --border: #2a292e;
+      --rule: #1f1e23;
+      --control: #3a3a3e;
+      --text: #f0f0f2;
+      --muted: #8a8c92;
+      --faint: #636469;
+      --accent: #d17a3e;
+      --positive: #44a282;
+      --negative: #e5566f;
+      --warning: #d9a441;
+      --pill-positive-bg: #1b2828;
+      --pill-positive-ink: #5fc39c;
+      --pill-negative-bg: #2c1a20;
+      --pill-negative-ink: #e5566f;
+      --pill-warning-bg: #2a2416;
+      --pill-warning-ink: #d9a441;
+      --pill-neutral-bg: #212023;
+      --pill-neutral-ink: #bdbdc0;
+      --radius: 6px;
+      --gap: 16px;
+      --pad: 24px;
+      --rail-w: 56px;
+    }
+
+    /* === RESET === */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; }
+    button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* === BASE === */
+    body {
+      background: var(--ground);
+      color: var(--text);
+      font: 13px/1.55 "Public Sans", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .num { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+
+    /* === SHELL – Icon rail === */
+    .shell { display: flex; min-height: 100vh; }
+
+    .rail {
+      position: fixed; inset: 0 auto 0 0;
+      width: var(--rail-w);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 20px 0 16px;
+      background: var(--ground);
+      border-right: 1px solid var(--border);
+      z-index: 10;
+    }
+    .rail-mark {
+      width: 32px; height: 32px;
+      display: grid; place-items: center;
+      background: var(--accent);
+      color: #fff;
+      font: 700 12px/1 "JetBrains Mono", monospace;
+      letter-spacing: -.04em;
+      border-radius: 8px;
+      margin-bottom: 28px;
+    }
+    .rail-nav { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+    .rail-btn {
+      position: relative;
+      display: grid; place-items: center;
+      width: 100%; height: 44px;
+      color: var(--muted);
+      font-size: 18px;
+      transition: color .15s;
+    }
+    .rail-btn:hover { color: var(--text); }
+    .rail-btn.active { color: var(--text); }
+    .rail-btn.active::after {
+      content: "";
+      position: absolute; left: 0; top: 12px; bottom: 12px;
+      width: 1px;
+      background: var(--accent);
+    }
+    .rail-bottom {
+      margin-top: auto;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .rail-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background .3s;
+    }
+    .rail-dot.online { background: var(--positive); }
+    .rail-dot.error  { background: var(--negative); }
+
+    /* === CANVAS === */
+    main {
+      flex: 1;
+      margin-left: var(--rail-w);
+      padding: 28px var(--pad) 40px;
+      max-width: 1400px;
+    }
+
+    /* === TITLE ROW === */
+    .title-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 6px;
+    }
+    .title-row h1 {
+      font: 600 26px/1.15 "Public Sans", system-ui, sans-serif;
+      letter-spacing: -.03em;
+    }
+    .title-actions { display: flex; gap: 6px; }
+    .title-meta {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 20px;
+    }
+    .title-meta .num { font-size: 11px; }
+
+    /* === CONTROLS === */
+    .btn-ghost {
+      display: inline-flex; align-items: center; justify-content: center;
+      height: 32px; min-width: 32px; padding: 0 10px;
+      border: 1px solid var(--control);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 11px; font-weight: 600;
+      transition: color .15s, border-color .15s;
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text); }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 32px; padding: 0 14px;
+      background: var(--text);
+      color: var(--ground);
+      border-radius: 999px;
+      font: 600 11px/1 "Public Sans", system-ui, sans-serif;
+      letter-spacing: .01em;
+      transition: opacity .15s;
+    }
+    .btn-primary:hover { opacity: .85; }
+
+    /* === STATUS STRIP === */
+    .status-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-radius: var(--radius);
+      margin-bottom: var(--gap);
+      font-size: 12px;
+    }
+    .status-strip .status-icon {
+      flex: 0 0 auto;
+      font-size: 14px;
+    }
+    .status-strip .status-text { flex: 1; color: var(--muted); }
+    .status-strip .status-text strong { color: var(--text); font-weight: 600; }
+    .status-strip.danger { border-left: 2px solid var(--negative); }
+    .status-strip.warning { border-left: 2px solid var(--warning); }
+    .status-strip.ok { border-left: 2px solid var(--positive); }
+
+    /* === TABS === */
+    .tabs {
+      display: flex; gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: var(--gap);
+    }
+    .tab {
+      position: relative;
+      padding: 10px 16px;
+      font-size: 12px; font-weight: 500;
+      color: var(--muted);
+      transition: color .15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); }
+    .tab.active::after {
+      content: "";
+      position: absolute;
+      left: 16px; right: 16px; bottom: -1px;
+      height: 1px;
+      background: var(--accent);
+    }
+    .tab-count { color: var(--faint); margin-left: 5px; }
+
+    /* === GRID === */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+    }
+    .span-2 { grid-column: span 2; }
+
+    /* === CARDS === */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+    .card-title {
+      font: 600 14px/1.3 "Public Sans", system-ui, sans-serif;
+      letter-spacing: -.01em;
+    }
+    .card-sub {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    /* === PILL === */
+    .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font: 500 10px/1 "JetBrains Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+      white-space: nowrap;
+      background: var(--pill-neutral-bg);
+      color: var(--pill-neutral-ink);
+    }
+    .pill.ok { background: var(--pill-positive-bg); color: var(--pill-positive-ink); }
+    .pill.warning { background: var(--pill-warning-bg); color: var(--pill-warning-ink); }
+    .pill.danger { background: var(--pill-negative-bg); color: var(--pill-negative-ink); }
+    .pill-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* === KPI === */
+    .kpi-value {
+      font: 400 40px/1 "JetBrains Mono", monospace;
+      letter-spacing: -.06em;
+      font-variant-numeric: tabular-nums;
+      margin: 20px 0 4px;
+    }
+    .kpi-unit {
+      font-size: 13px;
+      color: var(--muted);
+      font-family: "JetBrains Mono", monospace;
+      margin-left: 4px;
+    }
+
+    /* === METER === */
+    .meter-track {
+      height: 3px;
+      background: var(--raised);
+      border-radius: 2px;
+      margin: 16px 0 8px;
+      overflow: hidden;
+    }
+    .meter-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--positive);
+      transition: width .4s, background .3s;
+    }
+    .meter-bar.warning { background: var(--warning); }
+    .meter-bar.danger { background: var(--negative); }
+    .meter-labels {
+      display: flex;
+      justify-content: space-between;
+      font: 400 10px/1 "JetBrains Mono", monospace;
+      color: var(--faint);
+    }
+
+    .card-foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--rule);
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .card-foot .num { font-size: 10px; }
+
+    /* === FLAME SECTION === */
+    .flame-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 24px 0 16px;
+    }
+    .flame-signal {
+      width: 48px; height: 48px;
+      display: grid; place-items: center;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      font-size: 20px;
+      color: var(--muted);
+      transition: border-color .3s, color .3s;
+    }
+    .flame-signal.active {
+      border-color: var(--negative);
+      color: var(--negative);
+    }
+    .flame-figure {
+      font: 400 36px/1 "JetBrains Mono", monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -.05em;
+    }
+    .flame-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .flame-strip {
+      height: 3px;
+      background: var(--raised);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .flame-strip-bar {
+      height: 100%;
+      width: 0;
+      border-radius: 2px;
+      background: var(--positive);
+      transition: width .4s, background .3s;
+    }
+    .flame-strip.active .flame-strip-bar {
+      width: 100%;
+      background: var(--negative);
+    }
+
+    /* === LOG LIST === */
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font: 600 14px/1.3 "Public Sans", system-ui, sans-serif;
+    }
+    .section-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .log-list {
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .log-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+    }
+    .log-row + .log-row { border-top: 1px solid var(--rule); }
+    .log-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--positive);
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .log-dot.warning { background: var(--warning); }
+    .log-dot.danger { background: var(--negative); }
+    .log-body { flex: 1; min-width: 0; }
+    .log-title { font-size: 12px; font-weight: 500; }
+    .log-detail { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .log-time {
+      font: 400 10px/1.4 "JetBrains Mono", monospace;
+      color: var(--faint);
+      white-space: nowrap;
+      margin-left: auto;
+    }
+    .empty {
+      padding: 24px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* === DEVICE GRID === */
+    .device-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+    }
+    .device-cell {
+      padding: 12px 0;
+    }
+    .device-cell + .device-cell { border-left: 1px solid var(--rule); padding-left: 16px; }
+    .device-label {
+      font-size: 10px;
+      color: var(--faint);
+      margin-bottom: 4px;
+    }
+    .device-value {
+      font: 500 12px/1.3 "JetBrains Mono", monospace;
+      word-break: break-all;
+    }
+    .error-note {
+      margin-top: 12px;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      background: var(--pill-negative-bg);
+      color: var(--pill-negative-ink);
+      font-size: 11px;
+    }
+
+    /* === FOOTER === */
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 24px;
+      padding-top: 12px;
+      border-top: 1px solid var(--rule);
+      color: var(--faint);
+      font-size: 10px;
+    }
+
+    .hidden { display: none !important; }
+
+    /* === MOBILE HEADER (hidden on desktop) === */
+    .mobile-bar { display: none; }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 700px) {
+      .rail { display: none; }
+      .mobile-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--ground);
+      }
+      .mobile-bar .rail-mark { width: 28px; height: 28px; font-size: 10px; margin: 0; }
+      .mobile-bar-name { font: 600 13px/1 "Public Sans", system-ui, sans-serif; }
+      .mobile-bar-sub { font-size: 10px; color: var(--muted); margin-top: 2px; }
+      .mobile-bar .pill { margin-left: auto; }
+      main {
+        margin-left: 0;
+        padding: 20px 16px 32px;
+      }
+      .title-row { flex-wrap: wrap; }
+      .title-row h1 { font-size: 22px; width: 100%; }
+      .grid { grid-template-columns: 1fr; }
+      .span-2 { grid-column: span 1; }
+      .device-grid { grid-template-columns: 1fr 1fr; }
+      .device-cell:nth-child(3) { border-left: 0; padding-left: 0; }
+      .device-cell:nth-child(n+3) { border-top: 1px solid var(--rule); padding-top: 12px; margin-top: 8px; }
+      .kpi-value { font-size: 36px; }
+      footer { flex-direction: column; gap: 4px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important;
+        transition-duration: .01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <!-- Icon rail -->
+    <nav class="rail" aria-label="Navigasi utama">
+      <div class="rail-mark">FW</div>
+      <div class="rail-nav">
+        <button class="rail-btn active" data-view="overview" title="Ringkasan" aria-label="Ringkasan">⌂</button>
+        <button class="rail-btn" data-view="device" title="Perangkat" aria-label="Perangkat">▣</button>
+        <button class="rail-btn" data-view="logs" title="Riwayat" aria-label="Riwayat">≡</button>
+      </div>
+      <div class="rail-bottom">
+        <div class="rail-dot online" id="rail-dot" title="Status koneksi"></div>
+      </div>
+    </nav>
+
+    <!-- Mobile bar -->
+    <div class="mobile-bar">
+      <div class="rail-mark">FW</div>
+      <div>
+        <div class="mobile-bar-name">FireWatch</div>
+        <div class="mobile-bar-sub">ESP32-1 · Workshop</div>
+      </div>
+      <span class="pill ok" id="mobile-pill"><span class="pill-dot"></span><span>Online</span></span>
+    </div>
+
+    <main>
+      <!-- Title -->
+      <div class="title-row">
+        <h1>FireWatch</h1>
+        <div class="title-actions">
+          <button class="btn-ghost" id="alarm-toggle" type="button" aria-pressed="false">Aktifkan suara</button>
+          <button class="btn-ghost" id="reconnect" type="button" title="Sambungkan ulang" aria-label="Sambungkan ulang">↻</button>
+          <button class="btn-primary" id="simulate" type="button">Simulasi api</button>
+        </div>
+      </div>
+      <div class="title-meta">
+        Pos pantau Workshop 01 · ESP32-1 · <span class="num" id="date-label">Jumat, 13 November 2026</span>
+      </div>
+
+      <!-- Status strip -->
+      <div class="status-strip warning" id="status-strip" role="status" aria-live="polite">
+        <span class="status-icon" id="status-icon">↑</span>
+        <span class="status-text" id="status-text"><strong>Kadar gas meningkat.</strong> Pembacaan 2483 PPM. Alarm berbunyi mulai 4500 PPM.</span>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs" aria-label="Tampilan dashboard">
+        <button class="tab active" data-view="overview">Ringkasan</button>
+        <button class="tab" data-view="device">Perangkat</button>
+        <button class="tab" data-view="logs">Riwayat <span class="tab-count num" id="log-count">2</span></button>
+      </div>
+
+      <!-- OVERVIEW -->
+      <section id="overview-view" class="grid view">
+        <!-- Gas sensor -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">MQ-2</div>
+              <div class="card-sub">Konsentrasi gas dan asap</div>
+            </div>
+            <span class="pill warning" id="gas-pill"><span class="pill-dot"></span><span>Waspada</span></span>
+          </div>
+          <div class="kpi-value num" id="gas-value">2483</div>
+          <span class="kpi-unit">PPM</span>
+          <div class="meter-track" role="meter" aria-label="Kadar gas" aria-valuemin="0" aria-valuemax="6000" aria-valuenow="2483">
+            <div class="meter-bar warning" id="gas-meter" style="width: 41.4%;"></div>
+          </div>
+          <div class="meter-labels"><span>0</span><span>3.000</span><span>6.000 PPM</span></div>
+          <div class="card-foot">
+            <span id="gas-guidance">Kadar melewati batas normal</span>
+            <span class="num" id="gas-updated">21.14.18 WIB</span>
+          </div>
+        </div>
+
+        <!-- Flame sensor -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Sensor nyala api</div>
+              <div class="card-sub">Deteksi optik · ESP32-1</div>
+            </div>
+            <span class="pill ok" id="flame-pill"><span class="pill-dot"></span><span>Siaga</span></span>
+          </div>
+          <div class="flame-row">
+            <div class="flame-signal" id="flame-signal" aria-hidden="true">▲</div>
+            <div>
+              <div class="flame-figure num" id="flame-count">0</div>
+              <div class="flame-label">Kejadian terdeteksi</div>
+            </div>
+          </div>
+          <div class="flame-strip" id="flame-strip">
+            <div class="flame-strip-bar"></div>
+          </div>
+          <div class="card-foot">
+            <span id="flame-guidance">Tidak ada nyala api terdeteksi</span>
+            <span class="num" id="flame-updated">21.14.18 WIB</span>
+          </div>
+        </div>
+
+        <!-- Activity log -->
+        <div class="card">
+          <div class="section-head">
+            <div>
+              <div class="section-title">Aktivitas terbaru</div>
+              <div class="section-sub">Perubahan status dan koneksi</div>
+            </div>
+            <button class="btn-ghost" id="open-logs" type="button">Lihat semua</button>
+          </div>
+          <div class="log-list" id="log-list"><div class="log-row"><i class="log-dot warning"></i><div class="log-body"><div class="log-title">Kadar gas meningkat</div><div class="log-detail">Pembacaan sensor mencapai 2483 PPM.</div></div><time class="log-time">21.14.18 WIB</time></div><div class="log-row"><i class="log-dot "></i><div class="log-body"><div class="log-title">Sistem dimulai</div><div class="log-detail">Dashboard FireWatch sedang menghubungkan ke ESP32-1.</div></div><time class="log-time">21.14.17 WIB</time></div></div>
+        </div>
+
+        <!-- Device summary -->
+        <div class="card">
+          <div class="section-head">
+            <div>
+              <div class="section-title">Perangkat</div>
+              <div class="section-sub">Jalur data sensor</div>
+            </div>
+            <span class="pill ok" id="device-pill"><span class="pill-dot"></span><span>Firebase aktif</span></span>
+          </div>
+          <div class="device-grid">
+            <div class="device-cell"><div class="device-label">Node</div><div class="device-value">ESP32-1</div></div>
+            <div class="device-cell"><div class="device-label">Zona</div><div class="device-value">Workshop · Lt 1</div></div>
+            <div class="device-cell"><div class="device-label">Database</div><div class="device-value">Firebase RTDB</div></div>
+            <div class="device-cell"><div class="device-label">Path</div><div class="device-value">devices/ESP32-1</div></div>
+          </div>
+          <div class="error-note hidden" id="error-note"></div>
+        </div>
+      </section>
+
+      <!-- DEVICE VIEW -->
+      <section id="device-view" class="grid view hidden">
+        <div class="card span-2">
+          <div class="section-head">
+            <div>
+              <div class="section-title">Status perangkat</div>
+              <div class="section-sub">Informasi koneksi ESP32-1</div>
+            </div>
+            <span class="pill ok" id="device-pill-full"><span class="pill-dot"></span><span>Firebase aktif</span></span>
+          </div>
+          <div class="device-grid">
+            <div class="device-cell"><div class="device-label">Node</div><div class="device-value">ESP32-1</div></div>
+            <div class="device-cell"><div class="device-label">Zona</div><div class="device-value">Workshop · Lt 1</div></div>
+            <div class="device-cell"><div class="device-label">Database</div><div class="device-value">Firebase RTDB</div></div>
+            <div class="device-cell"><div class="device-label">Path</div><div class="device-value">devices/ESP32-1</div></div>
+          </div>
+          <div style="margin-top:16px;border-top:1px solid var(--rule);padding-top:16px">
+            <div class="device-grid">
+              <div class="device-cell" style="border:0;padding-left:0"><div class="device-label">Data terakhir</div><div class="device-value" id="device-updated">21.14.18 WIB</div></div>
+              <div class="device-cell"><div class="device-label">Sensor gas</div><div class="device-value">MQ-2</div></div>
+              <div class="device-cell"><div class="device-label">Sensor api</div><div class="device-value">Flame sensor</div></div>
+              <div class="device-cell"><div class="device-label">Ambang alarm</div><div class="device-value">4500 PPM</div></div>
+            </div>
+          </div>
+          <div class="error-note hidden" id="error-note-full"></div>
+        </div>
+      </section>
+
+      <!-- LOGS VIEW -->
+      <section id="logs-view" class="grid view hidden">
+        <div class="card span-2">
+          <div class="section-head">
+            <div>
+              <div class="section-title">Riwayat aktivitas</div>
+              <div class="section-sub" id="log-description">2 catatan · Maksimal 50 catatan.</div>
+            </div>
+            <button class="btn-ghost" id="clear-logs" type="button">Hapus riwayat</button>
+          </div>
+          <div class="log-list" id="full-log-list"><div class="log-row"><i class="log-dot warning"></i><div class="log-body"><div class="log-title">Kadar gas meningkat</div><div class="log-detail">Pembacaan sensor mencapai 2483 PPM.</div></div><time class="log-time">21.14.18 WIB</time></div><div class="log-row"><i class="log-dot "></i><div class="log-body"><div class="log-title">Sistem dimulai</div><div class="log-detail">Dashboard FireWatch sedang menghubungkan ke ESP32-1.</div></div><time class="log-time">21.14.17 WIB</time></div></div>
+        </div>
+      </section>
+
+      <footer>
+        <span>FireWatch · Pemantauan ESP32</span>
+        <span>Data diperbarui otomatis dari Firebase</span>
+      </footer>
+    </main>
+  </div>
+
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
+
+  const firebaseConfig = {
+    apiKey: 'AIzaSyDuyp9_duCGDf-qtdBSZcjB3GOYpx6flH0',
+    databaseURL: 'https://firewatch-a8815-default-rtdb.asia-southeast1.firebasedatabase.app'
+  };
+
+  const state = {
+    gas: 0, flame: false, baseFlame: false, flameCount: 0,
+    lastUpdated: null, connected: false, hasTelemetry: false,
+    simulationUntil: 0, events: []
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const GAS_WARNING_PPM = 200;
+  const GAS_ALARM_PPM = 4500;
+  const GAS_SCALE_MAX_PPM = 6000;
+  let audioContext = null;
+  let alarmAudioEnabled = false;
+  let alarmTimer = null;
+  let unsubscribe = null;
+  let app;
+  try { app = initializeApp(firebaseConfig); } catch (e) { console.error(e); }
+  const db = app ? getDatabase(app) : null;
+
+  /* -- pills helper -- */
+  function setPill(el, kind, label) {
+    el.className = `pill ${kind}`;
+    el.innerHTML = `<span class="pill-dot"></span><span>${label}</span>`;
+  }
+
+  /* -- connection -- */
+  const setConnection = (kind, message = '') => {
+    state.connection = kind;
+    state.connected = kind === 'online';
+
+    const dot = $('rail-dot');
+    dot.className = `rail-dot ${kind === 'online' ? 'online' : kind === 'error' ? 'error' : ''}`;
+
+    // Mobile pill
+    const mPill = $('mobile-pill');
+    const mLabel = kind === 'online' ? 'Online' : kind === 'error' ? 'Terputus' : 'Menghubungkan';
+    const mClass = kind === 'online' ? 'ok' : kind === 'error' ? 'danger' : '';
+    setPill(mPill, mClass, mLabel);
+
+    // Device pills
+    const dlabel = kind === 'online' ? 'Firebase aktif' : kind === 'error' ? 'Koneksi bermasalah' : 'Menghubungkan';
+    const dclass = kind === 'online' ? 'ok' : kind === 'error' ? 'danger' : '';
+    for (const id of ['device-pill', 'device-pill-full']) setPill($(id), dclass, dlabel);
+
+    $('error-note').classList.toggle('hidden', kind !== 'error');
+    $('error-note-full').classList.toggle('hidden', kind !== 'error');
+    if (kind === 'error') {
+      const msg = message || 'Tidak dapat membaca Realtime Database. Periksa koneksi dan aturan akses Firebase.';
+      $('error-note').textContent = msg;
+      $('error-note-full').textContent = msg;
+      $('status-text').innerHTML = '<strong>Data Firebase belum dapat dibaca.</strong> Periksa koneksi internet dan izin baca Realtime Database.';
+      $('status-icon').textContent = '!';
+      $('status-strip').className = 'status-strip warning';
+      addLog('Koneksi Firebase bermasalah', message || 'Gagal membaca data pada devices/ESP32-1.', 'warning');
+    } else if (kind === 'connecting') {
+      $('status-text').innerHTML = '<strong>Menghubungkan ke Firebase.</strong> Menunggu data dari ESP32-1.';
+      $('status-icon').textContent = '…';
+      $('status-strip').className = 'status-strip';
+    }
+    renderStatus();
+  };
+
+  const timeString = (date = new Date()) =>
+    date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+
+  function playAlarmBeep() {
+    if (!audioContext || audioContext.state !== 'running') return;
+    const now = audioContext.currentTime;
+    [[0, 880], [0.24, 660]].forEach(([delay, frequency]) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = 'square';
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, now + delay);
+      gain.gain.exponentialRampToValueAtTime(0.12, now + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.18);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(now + delay);
+      oscillator.stop(now + delay + 0.2);
+    });
+  }
+
+  function syncAlarmSound() {
+    const shouldSound = alarmAudioEnabled && (state.gas >= GAS_ALARM_PPM || state.flame);
+    if (!shouldSound) {
+      if (alarmTimer !== null) { window.clearInterval(alarmTimer); alarmTimer = null; }
+      return;
+    }
+    if (alarmTimer === null) {
+      playAlarmBeep();
+      alarmTimer = window.setInterval(playAlarmBeep, 1200);
+    }
+  }
+
+  async function toggleAlarmSound() {
+    if (alarmAudioEnabled) {
+      alarmAudioEnabled = false;
+      syncAlarmSound();
+      renderStatus();
+      return;
+    }
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) {
+      $('alarm-toggle').title = 'Browser ini tidak mendukung suara alarm gas dan api.';
+      return;
+    }
+    try {
+      audioContext ||= new AudioContextClass();
+      await audioContext.resume();
+      alarmAudioEnabled = true;
+      syncAlarmSound();
+      renderStatus();
+    } catch (error) {
+      console.error('Tidak dapat mengaktifkan suara alarm:', error);
+      $('alarm-toggle').title = 'Suara alarm tidak dapat diaktifkan. Periksa audio browser.';
+    }
+  }
+
+  function addLog(title, detail, type = 'normal') {
+    state.events.unshift({ title, detail, type, time: timeString() });
+    state.events = state.events.slice(0, 50);
+    renderLogs();
+  }
+
+  function renderLogs() {
+    $('log-count').textContent = String(state.events.length);
+    for (const target of [$('log-list'), $('full-log-list')]) {
+      target.replaceChildren();
+      if (!state.events.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'Belum ada aktivitas.';
+        target.append(empty);
+        continue;
+      }
+      state.events.slice(0, target.id === 'log-list' ? 5 : 50).forEach((event) => {
+        const row = document.createElement('div'); row.className = 'log-row';
+        const mark = document.createElement('i');
+        mark.className = `log-dot ${event.type === 'danger' ? 'danger' : event.type === 'warning' ? 'warning' : ''}`;
+        const body = document.createElement('div'); body.className = 'log-body';
+        const title = document.createElement('div'); title.className = 'log-title'; title.textContent = event.title;
+        const detail = document.createElement('div'); detail.className = 'log-detail'; detail.textContent = event.detail;
+        const time = document.createElement('time'); time.className = 'log-time'; time.textContent = event.time;
+        body.append(title, detail);
+        row.append(mark, body, time);
+        target.append(row);
+      });
+    }
+    $('log-description').textContent = `${state.events.length} catatan · Maksimal 50 catatan.`;
+  }
+
+  function renderStatus() {
+    const gasDanger = state.gas >= GAS_ALARM_PPM;
+    const gasWarning = state.gas >= GAS_WARNING_PPM && !gasDanger;
+    const danger = state.flame || gasDanger;
+
+    // Status strip
+    $('status-strip').className = `status-strip ${danger ? 'danger' : gasWarning ? 'warning' : state.connected && state.hasTelemetry ? 'ok' : ''}`;
+    $('status-icon').textContent = danger ? '!' : gasWarning ? '↑' : state.connected && state.hasTelemetry ? '✓' : '…';
+    const title = state.flame ? 'Bahaya: nyala api terdeteksi'
+      : gasDanger ? 'Bahaya: kadar gas tinggi'
+      : gasWarning ? 'Kadar gas meningkat'
+      : state.connection === 'error' ? 'Koneksi Firebase bermasalah'
+      : !state.connected ? 'Menunggu koneksi sensor'
+      : !state.hasTelemetry ? 'Data sensor belum tersedia'
+      : 'Kondisi terpantau normal';
+    const detail = state.flame ? `Periksa area dan lakukan evakuasi jika diperlukan. ${alarmAudioEnabled ? 'Alarm suara berbunyi.' : 'Klik Aktifkan suara agar alarm berbunyi.'}`
+      : gasDanger ? `Pembacaan mencapai ${state.gas} PPM. ${alarmAudioEnabled ? 'Alarm suara berbunyi.' : 'Klik Aktifkan suara agar alarm berbunyi.'} Periksa ventilasi dan area sekitar.`
+      : gasWarning ? `Kadar gas melewati ${GAS_WARNING_PPM} PPM. Pantau perubahan berikutnya.`
+      : state.connection === 'error' ? 'Periksa koneksi internet dan izin baca Realtime Database.'
+      : !state.connected ? 'Data sensor akan tampil setelah Firebase tersambung.'
+      : !state.hasTelemetry ? 'Database terhubung, tetapi path devices/ESP32-1 belum berisi data.'
+      : 'Belum ada indikasi api atau kadar gas berbahaya.';
+    $('status-text').innerHTML = `<strong>${title}.</strong> ${detail}`;
+
+    // Gas
+    const gasPillClass = gasDanger ? 'danger' : gasWarning ? 'warning' : 'ok';
+    const gasPillLabel = gasDanger ? 'Bahaya' : gasWarning ? 'Waspada' : 'Normal';
+    setPill($('gas-pill'), gasPillClass, gasPillLabel);
+
+    $('gas-value').textContent = String(state.gas);
+    const fill = $('gas-meter');
+    fill.style.width = `${Math.min(state.gas / GAS_SCALE_MAX_PPM * 100, 100)}%`;
+    fill.className = `meter-bar ${gasDanger ? 'danger' : gasWarning ? 'warning' : ''}`;
+    fill.parentElement.setAttribute('aria-valuemax', String(GAS_SCALE_MAX_PPM));
+    fill.parentElement.setAttribute('aria-valuenow', String(state.gas));
+    $('gas-guidance').textContent = gasDanger ? 'ALARM: ambang 4500 PPM terlampaui'
+      : gasWarning ? 'Kadar melewati batas normal'
+      : `Di bawah batas waspada ${GAS_WARNING_PPM} PPM`;
+    $('gas-updated').textContent = state.lastUpdated ? timeString(state.lastUpdated) : 'Belum ada data';
+    $('device-updated').textContent = state.lastUpdated ? timeString(state.lastUpdated) : 'Belum ada';
+
+    // Flame
+    const flamePillClass = state.flame ? 'danger' : 'ok';
+    const flamePillLabel = state.flame ? 'Api terdeteksi' : 'Siaga';
+    setPill($('flame-pill'), flamePillClass, flamePillLabel);
+
+    $('flame-count').textContent = String(state.flameCount);
+    $('flame-signal').classList.toggle('active', state.flame);
+    $('flame-strip').classList.toggle('active', state.flame);
+    $('flame-guidance').textContent = state.flame ? 'Periksa area dan sumber nyala' : 'Tidak ada nyala api terdeteksi';
+    $('flame-updated').textContent = state.lastUpdated ? timeString(state.lastUpdated) : 'Siaga';
+
+    const alarmButton = $('alarm-toggle');
+    alarmButton.textContent = alarmAudioEnabled ? 'Matikan suara' : 'Aktifkan suara';
+    alarmButton.setAttribute('aria-pressed', String(alarmAudioEnabled));
+    alarmButton.title = alarmAudioEnabled ? 'Matikan suara alarm gas dan api' : 'Aktifkan suara alarm gas dan api';
+    syncAlarmSound();
+  }
+
+  function connect() {
+    if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+    if (!db) { setConnection('error', 'Firebase gagal dimulai.'); return; }
+    setConnection('connecting');
+    unsubscribe = onValue(ref(db, 'devices/ESP32-1'), (snapshot) => {
+      setConnection('online');
+      const data = snapshot.val();
+      state.hasTelemetry = data !== null;
+      if (data === null) { state.lastUpdated = null; state.flame = false; state.baseFlame = false; renderStatus(); return; }
+      const previousGas = state.gas;
+      const gas = Number(typeof data === 'number' ? data : (data.gas_ppm ?? data.gas ?? 0));
+      if (Number.isFinite(gas)) state.gas = Math.max(0, gas);
+      state.baseFlame = Boolean(data.flame ?? data.flame_detected ?? false);
+      const nextFlame = state.baseFlame || Date.now() < state.simulationUntil;
+      if (nextFlame && !state.flame) { state.flameCount++; addLog('Nyala api terdeteksi', 'Sensor api pada ESP32-1 aktif.', 'danger'); }
+      else if (!nextFlame && state.flame) addLog('Status api kembali normal', 'Sensor tidak lagi mendeteksi nyala api.');
+      state.lastUpdated = new Date(); state.flame = nextFlame;
+      if (state.gas >= GAS_ALARM_PPM && previousGas < GAS_ALARM_PPM) addLog('Ambang alarm gas terlampaui', 'Pembacaan sensor mencapai ' + state.gas + ' PPM.', 'danger');
+      if (state.gas < GAS_ALARM_PPM && previousGas >= GAS_ALARM_PPM) addLog('Kadar gas turun di bawah ambang alarm', 'Pembacaan sensor kembali ke ' + state.gas + ' PPM.');
+      renderStatus();
+    }, (error) => { console.error('Firebase Realtime Database:', error); setConnection('error', error.message); });
+  }
+
+  /* -- View switching -- */
+  document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => {
+    const view = button.dataset.view;
+    document.querySelectorAll('.view').forEach((s) => s.classList.add('hidden'));
+    $(`${view}-view`).classList.remove('hidden');
+    document.querySelectorAll('[data-view]').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
+  }));
+
+  /* -- Init -- */
+  $('date-label').textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  $('alarm-toggle').addEventListener('click', toggleAlarmSound);
+  $('reconnect').addEventListener('click', connect);
+  $('simulate').addEventListener('click', () => {
+    state.simulationUntil = Date.now() + 3000;
+    if (!state.flame) { state.flame = true; state.flameCount++; addLog('Uji alarm dijalankan', 'Simulasi nyala api selama 3 detik.'); }
+    renderStatus();
+    window.setTimeout(() => {
+      state.flame = state.baseFlame; state.simulationUntil = 0;
+      if (!state.flame) addLog('Uji alarm selesai', 'Simulasi berakhir; status kembali mengikuti sensor.');
+      renderStatus();
+    }, 3000);
+  });
+  $('clear-logs').addEventListener('click', () => { state.events = []; renderLogs(); });
+  $('open-logs').addEventListener('click', () => document.querySelector('[data-view="logs"]').click());
+  addLog('Sistem dimulai', 'Dashboard FireWatch sedang menghubungkan ke ESP32-1.');
+  connect();
+  window.addEventListener('beforeunload', () => { if (unsubscribe) unsubscribe(); });
+</script>
+
+
+</body></html>
